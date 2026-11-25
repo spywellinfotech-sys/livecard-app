@@ -13,6 +13,16 @@ import android.os.Looper;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.provider.CallLog;
+import android.provider.CalendarContract;
+import android.provider.ContactsContract;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
   public class VcBridge {
@@ -81,6 +91,126 @@ public class MainActivity extends BridgeActivity {
         return true;
       } catch (Exception e) { return false; }
     }
+
+    @JavascriptInterface public void pickContact() {
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          Intent i = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+          contactLauncher.launch(i);
+        } catch (Exception e) { jsCall("window.__vcContact&&window.__vcContact('','')"); }
+      } });
+    }
+    @JavascriptInterface public void recentCalls() {
+      runOnUiThread(new Runnable() { public void run() {
+        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) { sendCalls(); }
+        else { requestPermissions(new String[]{Manifest.permission.READ_CALL_LOG}, 71); }
+      } });
+    }
+    @JavascriptInterface public void addEvents(final String json) {
+      runOnUiThread(new Runnable() { public void run() {
+        pendingEvents = json;
+        if (checkSelfPermission(Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) { insertEvents(); }
+        else { requestPermissions(new String[]{Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR}, 72); }
+      } });
+    }
+  }
+  private String pendingEvents = null;
+  private ActivityResultLauncher<Intent> contactLauncher;
+  private void jsCall(final String js) {
+    runOnUiThread(new Runnable() { public void run() {
+      try { getBridge().getWebView().evaluateJavascript(js, null); } catch (Exception e) {}
+    } });
+  }
+  private void sendCalls() {
+    JSONArray out = new JSONArray();
+    try {
+      Cursor c = getContentResolver().query(CallLog.Calls.CONTENT_URI,
+        new String[]{CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE, CallLog.Calls.DURATION},
+        null, null, CallLog.Calls.DATE + " DESC");
+      java.util.HashSet<String> seen = new java.util.HashSet<String>();
+      if (c != null) {
+        while (c.moveToNext() && out.length() < 60) {
+          String num = c.getString(0) == null ? "" : c.getString(0).replaceAll("[^0-9]", "");
+          if (num.length() > 10) num = num.substring(num.length() - 10);
+          if (num.length() != 10 || seen.contains(num)) continue;
+          seen.add(num);
+          JSONObject o = new JSONObject();
+          o.put("n", num); o.put("name", c.getString(1) == null ? "" : c.getString(1));
+          o.put("t", c.getInt(2)); o.put("d", c.getLong(3)); o.put("s", c.getInt(4));
+          out.put(o);
+        }
+        c.close();
+      }
+    } catch (Exception e) {}
+    jsCall("window.__vcCalls&&window.__vcCalls(" + JSONObject.quote(out.toString()) + ")");
+  }
+  private long writableCalendar() {
+    try {
+      Cursor c = getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,
+        new String[]{CalendarContract.Calendars._ID},
+        CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + ">=500 AND " + CalendarContract.Calendars.VISIBLE + "=1",
+        null, CalendarContract.Calendars.IS_PRIMARY + " DESC");
+      if (c != null) { long id = -1; if (c.moveToFirst()) id = c.getLong(0); c.close(); return id; }
+    } catch (Exception e) {}
+    return -1;
+  }
+  private void insertEvents() {
+    int n = 0;
+    String js = pendingEvents; pendingEvents = null;
+    try {
+      JSONArray a = new JSONArray(js);
+      long cal = writableCalendar();
+      if (cal < 0) {
+        // no calendar account: open the calendar's own add-event screen for the first item
+        JSONObject o = a.getJSONObject(0);
+        Intent i = new Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
+          .putExtra(CalendarContract.Events.TITLE, o.optString("t"))
+          .putExtra(CalendarContract.Events.EVENT_LOCATION, o.optString("p"))
+          .putExtra(CalendarContract.Events.DESCRIPTION, o.optString("note"))
+          .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, o.optLong("s"))
+          .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, o.optLong("e"))
+          .putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, o.optBoolean("allDay"));
+        startActivity(i);
+        jsCall("window.__vcCal&&window.__vcCal(1)");
+        return;
+      }
+      for (int k = 0; k < a.length(); k++) {
+        JSONObject o = a.getJSONObject(k);
+        ContentValues v = new ContentValues();
+        v.put(CalendarContract.Events.CALENDAR_ID, cal);
+        v.put(CalendarContract.Events.TITLE, o.optString("t"));
+        v.put(CalendarContract.Events.EVENT_LOCATION, o.optString("p"));
+        v.put(CalendarContract.Events.DESCRIPTION, o.optString("note"));
+        v.put(CalendarContract.Events.DTSTART, o.optLong("s"));
+        v.put(CalendarContract.Events.DTEND, o.optLong("e"));
+        boolean all = o.optBoolean("allDay");
+        v.put(CalendarContract.Events.ALL_DAY, all ? 1 : 0);
+        v.put(CalendarContract.Events.EVENT_TIMEZONE, all ? "UTC" : java.util.TimeZone.getDefault().getID());
+        v.put(CalendarContract.Events.HAS_ALARM, 1);
+        Uri u = getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v);
+        if (u == null) continue;
+        long eid = Long.parseLong(u.getLastPathSegment());
+        JSONArray rm = o.optJSONArray("rem");
+        if (rm != null) for (int r = 0; r < rm.length(); r++) {
+          ContentValues rv = new ContentValues();
+          rv.put(CalendarContract.Reminders.EVENT_ID, eid);
+          rv.put(CalendarContract.Reminders.MINUTES, rm.getInt(r));
+          rv.put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT);
+          getContentResolver().insert(CalendarContract.Reminders.CONTENT_URI, rv);
+        }
+        n++;
+      }
+    } catch (Exception e) {}
+    jsCall("window.__vcCal&&window.__vcCal(" + n + ")");
+  }
+  @Override public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+    super.onRequestPermissionsResult(code, perms, res);
+    boolean ok = res.length > 0;
+    for (int r : res) if (r != PackageManager.PERMISSION_GRANTED) ok = false;
+    if (code == 71) { if (ok) sendCalls(); else jsCall("window.__vcCalls&&window.__vcCalls('denied')"); }
+    if (code == 72) { if (ok) insertEvents(); else { pendingEvents = null; jsCall("window.__vcCal&&window.__vcCal(-1)"); } }
+  }
+  private void placeholderEnd() {
   }
   private void openLink(Intent i, long delay) {
     if (i == null) return;
@@ -95,6 +225,18 @@ public class MainActivity extends BridgeActivity {
   }
   @Override protected void onCreate(Bundle b) {
     super.onCreate(b);
+    contactLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+      try {
+        Intent d = result.getData();
+        if (result.getResultCode() != RESULT_OK || d == null || d.getData() == null) return;
+        Cursor c = getContentResolver().query(d.getData(), new String[]{ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER}, null, null, null);
+        if (c != null && c.moveToFirst()) {
+          String nm = c.getString(0) == null ? "" : c.getString(0), no = c.getString(1) == null ? "" : c.getString(1);
+          c.close();
+          jsCall("window.__vcContact&&window.__vcContact(" + JSONObject.quote(nm) + "," + JSONObject.quote(no) + ")");
+        }
+      } catch (Exception e) {}
+    });
     try { getBridge().getWebView().addJavascriptInterface(new VcBridge(), "ViNative"); } catch (Exception e) {}
     try { getBridge().getWebView().clearCache(true); } catch (Exception e) {}
     openLink(getIntent(), 1800);
