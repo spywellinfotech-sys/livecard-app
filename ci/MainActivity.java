@@ -129,11 +129,10 @@ public class MainActivity extends BridgeActivity {
         null, null, CallLog.Calls.DATE + " DESC");
       java.util.HashSet<String> seen = new java.util.HashSet<String>();
       if (c != null) {
-        while (c.moveToNext() && out.length() < 60) {
+        while (c.moveToNext() && out.length() < 200) {
           String num = c.getString(0) == null ? "" : c.getString(0).replaceAll("[^0-9]", "");
           if (num.length() > 10) num = num.substring(num.length() - 10);
-          if (num.length() != 10 || seen.contains(num)) continue;
-          seen.add(num);
+          if (num.length() != 10) continue;
           JSONObject o = new JSONObject();
           o.put("n", num); o.put("name", c.getString(1) == null ? "" : c.getString(1));
           o.put("t", c.getInt(2)); o.put("d", c.getLong(3)); o.put("s", c.getInt(4));
