@@ -1,0 +1,84 @@
+name: LiveCard APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Version number
+        run: echo "VER=$(( ${{ github.run_number }} + 100 ))" >> $GITHUB_ENV
+
+      - name: Install packages
+        run: npm install
+      - name: Create Android project
+        run: npx cap add android
+      - name: Google login via Chrome (app link back into the app)
+        run: |
+          cp ci/MainActivity.java android/app/src/main/java/com/spywell/vicard/MainActivity.java
+          python3 - <<'PY'
+          p='android/app/src/main/AndroidManifest.xml'
+          s=open(p).read()
+          f='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="/studio/appauth"/></intent-filter>'
+          for pre in ('/v/','/web/','/inv/'):
+              f+='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="'+pre+'"/></intent-filter>'
+          pm='<uses-permission android:name="android.permission.CAMERA"/><uses-feature android:name="android.hardware.camera" android:required="false"/>'
+          j=s.index('<application')
+          s=s[:j]+pm+s[j:]
+          i=s.index('</activity>')
+          s=s[:i]+f+s[i:]
+          open(p,'w').write(s)
+          PY
+          grep -n "appauth\|pathPrefix\|CAMERA" android/app/src/main/AndroidManifest.xml
+      - name: Apply app icon
+        run: |
+          pip install pillow --break-system-packages -q || pip install pillow -q
+          python3 ci/make_icons.py
+      - name: Set app version
+        run: |
+          sed -i "s/versionCode 1/versionCode $VER/; s/versionName \"1.0\"/versionName \"1.0.$VER\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+          sed -i "s/__VER__/1.0.$VER/" www/index.html
+      - name: Pin signing to the fixed key (same key as before)
+        run: |
+          python3 $GITHUB_WORKSPACE/tools/pin_signing.py android ci/debug.keystore
+          mkdir -p ~/.android && cp ci/debug.keystore ~/.android/debug.keystore
+      - name: Copy web app into Android
+        run: npx cap sync android
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cd ..
+          cp android/app/build/outputs/apk/debug/app-debug.apk vicard-1.0.$VER.apk
+      - name: Check signing key
+        run: $GITHUB_WORKSPACE/tools/check_signing.sh vicard-1.0.$VER.apk ci/debug.keystore
+      - name: Upload APK
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: vicard-apk
+          path: vicard-*.apk
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "vicard-v1.0.$VER" "vicard-1.0.$VER.apk" \
+            --title "LiveCard 1.0.$VER" \
+            --notes "LiveCard APK (personal use)" --latest=false
