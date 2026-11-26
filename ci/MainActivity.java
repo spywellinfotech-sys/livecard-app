@@ -150,7 +150,7 @@ public class MainActivity extends BridgeActivity {
         null, null, CallLog.Calls.DATE + " DESC");
       java.util.HashSet<String> seen = new java.util.HashSet<String>();
       if (c != null) {
-        while (c.moveToNext() && out.length() < 200) {
+        while (c.moveToNext() && out.length() < 1500) {
           String num = c.getString(0) == null ? "" : c.getString(0).replaceAll("[^0-9]", "");
           if (num.length() > 10) num = num.substring(num.length() - 10);
           if (num.length() < 3) continue;
