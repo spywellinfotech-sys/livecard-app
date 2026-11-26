@@ -92,6 +92,17 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception e) { return false; }
     }
 
+    @JavascriptInterface public void scanQr() {
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          com.google.mlkit.vision.codescanner.GmsBarcodeScanner sc = com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(MainActivity.this);
+          sc.startScan()
+            .addOnSuccessListener(new com.google.android.gms.tasks.OnSuccessListener<com.google.mlkit.vision.barcode.common.Barcode>() { public void onSuccess(com.google.mlkit.vision.barcode.common.Barcode b) { jsCall("window.__vcQr&&window.__vcQr(" + JSONObject.quote(String.valueOf(b.getRawValue())) + ")"); } })
+            .addOnCanceledListener(new com.google.android.gms.tasks.OnCanceledListener() { public void onCanceled() { jsCall("window.__vcQr&&window.__vcQr('')"); } })
+            .addOnFailureListener(new com.google.android.gms.tasks.OnFailureListener() { public void onFailure(Exception e) { jsCall("window.__vcQr&&window.__vcQr('ERR')"); } });
+        } catch (Throwable e) { jsCall("window.__vcQr&&window.__vcQr('ERR')"); }
+      } });
+    }
     @JavascriptInterface public void pickContact() {
       runOnUiThread(new Runnable() { public void run() {
         try {

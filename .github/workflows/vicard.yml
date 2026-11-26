@@ -45,6 +45,10 @@ jobs:
           open(p,'w').write(s)
           PY
           grep -n "appauth\|pathPrefix\|CAMERA" android/app/src/main/AndroidManifest.xml
+      - name: Add QR scanner library
+        run: |
+          sed -i "0,/^dependencies {/s//dependencies {\n    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'/" android/app/build.gradle
+          grep -n "code-scanner" android/app/build.gradle
       - name: Apply app icon
         run: |
           pip install pillow --break-system-packages -q || pip install pillow -q
