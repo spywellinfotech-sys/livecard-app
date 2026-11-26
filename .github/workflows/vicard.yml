@@ -35,7 +35,7 @@ jobs:
           p='android/app/src/main/AndroidManifest.xml'
           s=open(p).read()
           f='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="/studio/appauth"/></intent-filter>'
-          for pre in ('/v/','/web/','/inv/'):
+          for pre in ('/v/','/web/','/inv/','/studio/'):
               f+='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="'+pre+'"/></intent-filter>'
           pm='<uses-permission android:name="android.permission.CAMERA"/><uses-feature android:name="android.hardware.camera" android:required="false"/><uses-permission android:name="android.permission.READ_CALL_LOG"/><uses-permission android:name="android.permission.READ_CALENDAR"/><uses-permission android:name="android.permission.WRITE_CALENDAR"/>'
           j=s.index('<application')
@@ -47,7 +47,7 @@ jobs:
           grep -n "appauth\|pathPrefix\|CAMERA" android/app/src/main/AndroidManifest.xml
       - name: Add QR scanner library
         run: |
-          sed -i "0,/^dependencies {/s//dependencies {\n    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'/" android/app/build.gradle
+          sed -i "0,/^dependencies {/s//dependencies {\n    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'\n    implementation 'androidx.browser:browser:1.8.0'/" android/app/build.gradle
           grep -n "code-scanner" android/app/build.gradle
       - name: Apply app icon
         run: |

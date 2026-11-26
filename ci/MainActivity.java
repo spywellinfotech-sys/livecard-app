@@ -92,6 +92,16 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception e) { return false; }
     }
 
+    @JavascriptInterface public void openAuth(final String url) {
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          androidx.browser.customtabs.CustomTabsIntent t = new androidx.browser.customtabs.CustomTabsIntent.Builder().build();
+          t.launchUrl(MainActivity.this, Uri.parse(url));
+        } catch (Throwable e) {
+          try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Throwable e2) {}
+        }
+      } });
+    }
     @JavascriptInterface public void scanQr() {
       runOnUiThread(new Runnable() { public void run() {
         try {
