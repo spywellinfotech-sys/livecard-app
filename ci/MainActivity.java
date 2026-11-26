@@ -132,7 +132,7 @@ public class MainActivity extends BridgeActivity {
         while (c.moveToNext() && out.length() < 200) {
           String num = c.getString(0) == null ? "" : c.getString(0).replaceAll("[^0-9]", "");
           if (num.length() > 10) num = num.substring(num.length() - 10);
-          if (num.length() != 10) continue;
+          if (num.length() < 3) continue;
           JSONObject o = new JSONObject();
           o.put("n", num); o.put("name", c.getString(1) == null ? "" : c.getString(1));
           o.put("t", c.getInt(2)); o.put("d", c.getLong(3)); o.put("s", c.getInt(4));
