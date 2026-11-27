@@ -266,7 +266,7 @@ public class MainActivity extends BridgeActivity {
           WebView w = getBridge().getWebView();
           String u = w.getUrl();
           if (w.canGoBack()) { w.goBack(); return; }
-          if (u != null && u.startsWith("http") && !u.matches("https://livecard\\.in/studio/?(\\?.*)?(#.*)?")) { w.loadUrl("https://livecard.in/studio/"); return; }
+          if (u != null && u.startsWith("http") && !u.matches("https://livecard\\.in/studio/app/?(\\?.*)?(#.*)?")) { w.loadUrl("https://livecard.in/studio/app/"); return; }
         } catch (Exception e) {}
         setEnabled(false);
         getOnBackPressedDispatcher().onBackPressed();
