@@ -86,3 +86,10 @@ jobs:
           gh release create "vicard-v1.0.$VER" "vicard-1.0.$VER.apk" \
             --title "LiveCard 1.0.$VER" \
             --notes "LiveCard APK (personal use)" --latest=false
+          cp "vicard-1.0.$VER.apk" LiveCard-latest.apk
+          if gh release view vicard-latest >/dev/null 2>&1; then
+            gh release upload vicard-latest LiveCard-latest.apk --clobber
+            gh release edit vicard-latest --title "LiveCard latest (1.0.$VER)" --notes "Latest LiveCard is 1.0.$VER"
+          else
+            gh release create vicard-latest LiveCard-latest.apk --title "LiveCard latest (1.0.$VER)" --notes "Latest LiveCard is 1.0.$VER" --latest=false
+          fi
