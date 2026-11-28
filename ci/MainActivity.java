@@ -344,7 +344,7 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception e) {}
     });
     try { getBridge().getWebView().addJavascriptInterface(new VcBridge(), "ViNative"); } catch (Exception e) {}
-    try { getBridge().getWebView().clearCache(true); } catch (Exception e) {}
+    // cache kept between launches (files are versioned) to save data
     openLink(getIntent(), 1800);
     getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
       @Override public void handleOnBackPressed() {
