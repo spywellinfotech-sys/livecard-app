@@ -123,6 +123,17 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {}
       } });
     }
+    @JavascriptInterface public void shareFile(final String uri, final String mime) {
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          Intent i = new Intent(Intent.ACTION_SEND);
+          i.setType(mime == null || mime.isEmpty() ? "application/pdf" : mime);
+          i.putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(uri));
+          i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          startActivity(Intent.createChooser(i, "Share"));
+        } catch (Exception e) {}
+      } });
+    }
     @JavascriptInterface public void share(final String uri) {
       runOnUiThread(new Runnable() { public void run() {
         try {
