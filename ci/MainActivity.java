@@ -48,6 +48,66 @@ public class MainActivity extends BridgeActivity {
         return u.toString();
       } catch (Exception e) { return ""; }
     }
+    @JavascriptInterface public String saveFile(String b64, String name, String mime) {
+      try {
+        if (android.os.Build.VERSION.SDK_INT < 29) return "";
+        byte[] d = Base64.decode(b64, Base64.DEFAULT);
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+        v.put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/LiveCard");
+        v.put(MediaStore.MediaColumns.IS_PENDING, 1);
+        android.net.Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        if (u == null) return "";
+        OutputStream o = getContentResolver().openOutputStream(u);
+        o.write(d); o.close();
+        ContentValues w = new ContentValues();
+        w.put(MediaStore.MediaColumns.IS_PENDING, 0);
+        getContentResolver().update(u, w, null, null);
+        return u.toString();
+      } catch (Exception e) { return ""; }
+    }
+    @JavascriptInterface public String nfcState() {
+      android.nfc.NfcAdapter a = android.nfc.NfcAdapter.getDefaultAdapter(MainActivity.this);
+      if (a == null) return "none"; return a.isEnabled() ? "on" : "off";
+    }
+    @JavascriptInterface public void cancelNfc() {
+      runOnUiThread(new Runnable() { public void run() {
+        try { android.nfc.NfcAdapter a = android.nfc.NfcAdapter.getDefaultAdapter(MainActivity.this); if (a != null) a.disableReaderMode(MainActivity.this); } catch (Exception e) {}
+      } });
+    }
+    @JavascriptInterface public boolean writeNfc(final String url) {
+      final android.nfc.NfcAdapter a = android.nfc.NfcAdapter.getDefaultAdapter(MainActivity.this);
+      if (a == null || !a.isEnabled()) return false;
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          a.enableReaderMode(MainActivity.this, new android.nfc.NfcAdapter.ReaderCallback() {
+            public void onTagDiscovered(android.nfc.Tag tag) {
+              String st;
+              try {
+                android.nfc.NdefMessage msg = new android.nfc.NdefMessage(android.nfc.NdefRecord.createUri(url));
+                android.nfc.tech.Ndef nd = android.nfc.tech.Ndef.get(tag);
+                if (nd != null) {
+                  nd.connect();
+                  if (!nd.isWritable()) st = "readonly";
+                  else if (nd.getMaxSize() < msg.toByteArray().length) st = "small";
+                  else { nd.writeNdefMessage(msg); st = "ok"; }
+                  try { nd.close(); } catch (Exception e2) {}
+                } else {
+                  android.nfc.tech.NdefFormatable f = android.nfc.tech.NdefFormatable.get(tag);
+                  if (f != null) { f.connect(); f.format(msg); try { f.close(); } catch (Exception e3) {} st = "ok"; }
+                  else st = "unsupported";
+                }
+              } catch (Exception e) { st = "error"; }
+              final String s2 = st;
+              runOnUiThread(new Runnable() { public void run() { try { a.disableReaderMode(MainActivity.this); } catch (Exception e) {} } });
+              jsCall("window.__vcNfc&&window.__vcNfc('" + s2 + "')");
+            }
+          }, android.nfc.NfcAdapter.FLAG_READER_NFC_A | android.nfc.NfcAdapter.FLAG_READER_NFC_B | android.nfc.NfcAdapter.FLAG_READER_NFC_F | android.nfc.NfcAdapter.FLAG_READER_NFC_V | android.nfc.NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK | android.nfc.NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS, null);
+        } catch (Exception e) { jsCall("window.__vcNfc&&window.__vcNfc('error')"); }
+      } });
+      return true;
+    }
     @JavascriptInterface public void share(final String uri) {
       runOnUiThread(new Runnable() { public void run() {
         try {

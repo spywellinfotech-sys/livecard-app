@@ -37,7 +37,7 @@ jobs:
           f='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="/studio/appauth"/></intent-filter>'
           for pre in ('/v/','/web/','/inv/','/studio/'):
               f+='<intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="livecard.in" android:pathPrefix="'+pre+'"/></intent-filter>'
-          pm='<uses-permission android:name="android.permission.CAMERA"/><uses-feature android:name="android.hardware.camera" android:required="false"/><uses-permission android:name="android.permission.READ_CALL_LOG"/><uses-permission android:name="android.permission.READ_CALENDAR"/><uses-permission android:name="android.permission.WRITE_CALENDAR"/>'
+          pm='<uses-permission android:name="android.permission.NFC"/><uses-feature android:name="android.hardware.nfc" android:required="false"/><uses-permission android:name="android.permission.CAMERA"/><uses-feature android:name="android.hardware.camera" android:required="false"/><uses-permission android:name="android.permission.READ_CALL_LOG"/><uses-permission android:name="android.permission.READ_CALENDAR"/><uses-permission android:name="android.permission.WRITE_CALENDAR"/>'
           j=s.index('<application')
           s=s[:j]+pm+s[j:]
           i=s.index('</activity>')
