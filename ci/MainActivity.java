@@ -108,6 +108,21 @@ public class MainActivity extends BridgeActivity {
       } });
       return true;
     }
+    @JavascriptInterface public void emailFile(final String uri, final String to, final String subject, final String body) {
+      runOnUiThread(new Runnable() { public void run() {
+        try {
+          Intent i = new Intent(Intent.ACTION_SEND);
+          i.setType("application/pdf");
+          i.putExtra(Intent.EXTRA_EMAIL, new String[]{ to });
+          i.putExtra(Intent.EXTRA_SUBJECT, subject);
+          i.putExtra(Intent.EXTRA_TEXT, body);
+          i.putExtra(Intent.EXTRA_STREAM, Uri.parse(uri));
+          i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          Intent g = new Intent(i); g.setPackage("com.google.android.gm");
+          try { startActivity(g); } catch (Exception e) { startActivity(Intent.createChooser(i, "Email")); }
+        } catch (Exception e) {}
+      } });
+    }
     @JavascriptInterface public void share(final String uri) {
       runOnUiThread(new Runnable() { public void run() {
         try {
